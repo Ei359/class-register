@@ -140,7 +140,7 @@ npm run lint
 
 ## Data Storage
 
-The application currently uses browser Local Storage to save student information, attendance records, and correction history.
+The application currently uses browser Local Storage to save student information, attendance records and correction history.
 
 I also added JSON backup and restore functionality so users can download their data and restore it when needed.
 
