@@ -120,4 +120,326 @@
   .roster-table th:last-child {
     width: auto;
   }
+
+
+/* =========================================
+   RESPONSIVE DESIGN - TABLETS AND MOBILE
+========================================= */
+
+@media (max-width: 760px) {
+
+  /* Main application layout */
+  .layout {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-width: 0;
+    min-height: 100vh;
+  }
+
+  /* Mobile top navigation */
+  .sidebar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    flex: 0 0 auto;
+    box-sizing: border-box;
+    padding: 12px 16px 8px;
+    overflow: hidden;
+  }
+
+  /* Brand */
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+    white-space: nowrap;
+  }
+
+  /* Workspace label */
+  .sidebar-label {
+    margin: 5px 8px 7px;
+    font-size: 11px;
+  }
+
+  /* Horizontal navigation */
+  .sidebar nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 6px;
+
+    width: 100%;
+    min-width: 0;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    padding: 3px 0 9px;
+    margin: 0;
+
+    white-space: nowrap;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x proximity;
+  }
+
+  .sidebar nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Navigation links */
+  .sidebar nav a {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+
+    width: auto;
+    min-width: max-content;
+    max-width: none;
+
+    padding: 10px 12px;
+    gap: 8px;
+
+    white-space: nowrap;
+    scroll-snap-align: start;
+  }
+
+  .sidebar nav a .nav-icon {
+    flex-shrink: 0;
+  }
+
+  .sidebar nav a .active-indicator {
+    margin-left: 3px;
+  }
+
+  /* Hide desktop footer */
+  .sidebar-footer {
+    display: none;
+  }
+
+  /* Main content */
+  .workspace {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    margin: 0;
+    padding: 18px 14px 30px;
+    box-sizing: border-box;
+  }
+
+  /* Page headings */
+  .page-header {
+    margin-bottom: 16px;
+  }
+
+  .page-header h1 {
+    font-size: clamp(26px, 7vw, 36px);
+    line-height: 1.15;
+  }
+
+  /* Panels */
+  .workspace .panel {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .workspace .panel-header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .workspace .panel-header > * {
+    min-width: 0;
+  }
+
+  /* Attendance controls */
+  .workspace > .panel.controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+    align-items: end;
+  }
+
+  .workspace > .panel.controls label {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .workspace > .panel.controls input,
+  .workspace > .panel.controls select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  .workspace > .panel.controls button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  /* Statistics cards */
+  .summary {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .stat {
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Register completion */
+  .completion {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+  }
+
+  .completion progress {
+    width: 100%;
+  }
+
+  /* Search and filters */
+  .filters {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .filters label {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .filters input,
+  .filters select {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Tables */
+  .table-container {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .table-container table {
+    min-width: 600px;
+  }
+
+  /* Report filters */
+  .report-filters {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .report-filters label {
+    min-width: 0;
+  }
+
+  .report-filters input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+
+  /* Report buttons */
+  .report-actions {
+    display: flex;
+    flex-wrap: wrap;
+    width: 100%;
+    gap: 8px;
+  }
+
+  .report-actions button {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  /* Student form */
+  .student-form {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .student-form label {
+    min-width: 0;
+  }
+
+  .student-form input {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+  }
+}
+
+
+/* =========================================
+   SMALL MOBILE PHONES
+========================================= */
+
+@media (max-width: 420px) {
+
+  .sidebar {
+    padding: 10px 12px 7px;
+  }
+
+  .brand {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+
+  .sidebar nav {
+    gap: 5px;
+  }
+
+  .sidebar nav a {
+    padding: 9px 10px;
+    font-size: 13px;
+  }
+
+  .workspace {
+    padding: 14px 10px 24px;
+  }
+
+  .workspace > .panel.controls {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .report-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .workspace .panel-header button {
+    max-width: 100%;
+  }
+}
+
 }
