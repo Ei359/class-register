@@ -24,7 +24,25 @@ I wanted to build something practical rather than just a basic React project, so
 
 ## Dashboard Preview
 
-<!-- Add your dashboard screenshot here -->
+### 1. Attendance Dashboard
+Manage daily attendance and monitor class attendance statistics.
+
+![Attendance Dashboard](screenshots/01-attendance-dashboard.png)
+
+### 2. Student Management
+Add students, update student information, and manage enrollment records.
+
+![Student Management](screenshots/02-student-management.png)
+
+### 3. Attendance Reports
+Review attendance percentages, daily records, and individual student performance.
+
+![Attendance Reports](screenshots/03-attendance-reports.png)
+
+### 4. Backup and Restore
+Download JSON backups and restore previously saved attendance data.
+
+![Backup and Restore](screenshots/04-backup-restore.png)
 
 ![Class Register Dashboard](screenshots/attendance-dashboard.png)
 
