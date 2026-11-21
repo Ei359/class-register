@@ -1,0 +1,15 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #192641;
+  background: #f3f6fb;
+
+  --ink: #192641;
+  --muted: #526078;
+  --line: #dce4ef;
+  --accent: #244fd0;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; }
+button, input, select { font: inherit; }
+h1, h2, p { margin: 0; }
