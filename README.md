@@ -44,8 +44,6 @@ Download JSON backups and restore previously saved attendance data.
 
 ![Backup and Restore](screenshots/04-backup-restore.png)
 
-![Class Register Dashboard](screenshots/attendance-dashboard.png)
-
 ## Features
 
 ### 1. Attendance Management
