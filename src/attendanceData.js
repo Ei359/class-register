@@ -30,7 +30,6 @@ const sampleStudents = [
 export function loadStudents() {
   try {
     const saved = JSON.parse(localStorage.getItem(studentsKey))
-
     if (Array.isArray(saved)) return saved
   } catch {
     // Use the sample roster if the saved roster cannot be read.
@@ -42,10 +41,7 @@ export function loadStudents() {
 export function loadRecords() {
   try {
     const saved = JSON.parse(localStorage.getItem(recordsKey))
-
-    if (saved && typeof saved === 'object' && !Array.isArray(saved)) {
-      return saved
-    }
+    if (saved && typeof saved === 'object' && !Array.isArray(saved)) return saved
   } catch {
     // Use an empty record set if attendance cannot be read.
   }
@@ -69,12 +65,19 @@ export function formatDate(date) {
   })
 }
 
-export function getRoster(students, date, dayRecords) {
+export function getRoster(students, date, dayRecords, finalizedRegister) {
+  const studentIds = finalizedRegister?.studentIds
+  const snapshot = Array.isArray(studentIds) ? new Set(studentIds) : null
+
   return students
-    .filter((student) =>
-      (!student.startDate || student.startDate <= date) &&
-      (!student.endDate || student.endDate >= date),
-    )
+    .filter((student) => {
+      if (snapshot) return snapshot.has(student.id)
+
+      return (
+        (!student.startDate || student.startDate <= date) &&
+        (!student.endDate || student.endDate >= date)
+      )
+    })
     .map((student) => {
       const status = dayRecords?.[student.id]
 
@@ -83,6 +86,38 @@ export function getRoster(students, date, dayRecords) {
         status: statuses.includes(status) ? status : 'Unmarked',
       }
     })
+}
+
+export function snapshotFinalizedRosters(finalized, students) {
+  const result = {}
+
+  for (const classroom of classes) {
+    const registers = finalized[classroom.id]
+
+    if (!registers || typeof registers !== 'object' || Array.isArray(registers)) {
+      continue
+    }
+
+    const classStudents = students.filter(
+      (student) => student.classId === classroom.id,
+    )
+
+    result[classroom.id] = Object.fromEntries(
+      Object.entries(registers)
+        .filter(([, entry]) => entry && typeof entry === 'object' && !Array.isArray(entry))
+        .map(([date, entry]) => [
+          date,
+          Array.isArray(entry.studentIds)
+            ? entry
+            : {
+                ...entry,
+                studentIds: getRoster(classStudents, date).map((student) => student.id),
+              },
+        ]),
+    )
+  }
+
+  return result
 }
 
 export function countStatuses(roster) {

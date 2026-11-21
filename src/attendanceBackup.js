@@ -3,8 +3,12 @@ import {
   getToday,
   loadRecords,
   loadStudents,
+  getRoster,
+  snapshotFinalizedRosters,
   statuses,
 } from './attendanceData.js'
+import { canFinalizeRoster, REOPEN_REASON_MAX } from './attendanceCorrections.js'
+import { downloadFile } from './attendanceCsv.js'
 
 const storageKey = 'class-register-data-v1'
 const backupFormat = 'class-register'
@@ -20,11 +24,7 @@ function isDate(value) {
   }
 
   const date = new Date(`${value}T00:00:00.000Z`)
-
-  return (
-    Number.isFinite(date.getTime()) &&
-    date.toISOString().slice(0, 10) === value
-  )
+  return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value
 }
 
 export function loadRegisterData() {
@@ -32,42 +32,51 @@ export function loadRegisterData() {
     const saved = JSON.parse(localStorage.getItem(storageKey))
 
     if (isObject(saved) && isObject(saved.records) && Array.isArray(saved.students)) {
-      return { students: saved.students, records: saved.records }
+      return {
+        students: saved.students,
+        records: saved.records,
+        corrections: Array.isArray(saved.corrections) ? saved.corrections : [],
+        finalized: snapshotFinalizedRosters(
+          isObject(saved.finalized) ? saved.finalized : {},
+          saved.students,
+        ),
+      }
     }
   } catch {
-    // Fall back to the storage keys used by earlier versions.
+    // The original storage keys are also supported.
   }
 
-  return { students: loadStudents(), records: loadRecords() }
+  return {
+    students: loadStudents(),
+    records: loadRecords(),
+    corrections: [],
+    finalized: {},
+  }
 }
 
-export function saveRegisterData({ students, records }) {
-  localStorage.setItem(storageKey, JSON.stringify({ students, records }))
+export function saveRegisterData({ students, records, corrections = [], finalized = {} }) {
+  localStorage.setItem(
+    storageKey,
+    JSON.stringify({ students, records, corrections, finalized }),
+  )
 }
 
-export function downloadAttendanceBackup(students, records) {
+export function downloadAttendanceBackup(students, records, corrections = [], finalized = {}) {
   const backup = {
     format: backupFormat,
     version: backupVersion,
     exportedAt: new Date().toISOString(),
     students,
     records,
+    corrections,
+    finalized,
   }
 
   const file = new Blob([JSON.stringify(backup, null, 2)], {
     type: 'application/json',
   })
 
-  const url = URL.createObjectURL(file)
-  const link = document.createElement('a')
-
-  link.href = url
-  link.download = `class-register-backup-${getToday()}.json`
-  document.body.append(link)
-  link.click()
-  link.remove()
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  downloadFile(file, `class-register-backup-${getToday()}.json`)
 }
 
 export function parseAttendanceBackup(text) {
@@ -87,11 +96,13 @@ export function parseAttendanceBackup(text) {
     throw new Error('Choose a JSON backup exported by this version of Class Register.')
   }
 
-  const { students, records, exportedAt } = backup
+  const { students, records, corrections = [], finalized = {}, exportedAt } = backup
 
   if (
     !Array.isArray(students) ||
     !isObject(records) ||
+    !Array.isArray(corrections) ||
+    !isObject(finalized) ||
     typeof exportedAt !== 'string' ||
     !Number.isFinite(Date.parse(exportedAt))
   ) {
@@ -141,5 +152,97 @@ export function parseAttendanceBackup(text) {
     }
   }
 
-  return { students, records, exportedAt }
+  for (const [classId, registers] of Object.entries(finalized)) {
+    if (!classes.some((item) => item.id === classId) || !isObject(registers)) {
+      throw new Error('The backup contains an invalid finalized register.')
+    }
+
+    const classStudents = students.filter((student) => student.classId === classId)
+
+    for (const [date, entry] of Object.entries(registers)) {
+      if (
+        !isDate(date) ||
+        !hasValidActorAndTime(entry) ||
+        !hasValidSnapshot(entry, classId, studentsById) ||
+        !canFinalizeRoster(getRoster(classStudents, date, records[date], entry))
+      ) {
+        throw new Error('The backup contains an incomplete or invalid finalized register.')
+      }
+    }
+  }
+
+  const correctionIds = new Set()
+
+  for (const entry of corrections) {
+    if (
+      !hasValidActorAndTime(entry) ||
+      typeof entry.id !== 'string' ||
+      !entry.id ||
+      correctionIds.has(entry.id) ||
+      !classes.some((item) => item.id === entry.classId) ||
+      !isDate(entry.date) ||
+      !isValidCorrection(entry, studentsById)
+    ) {
+      throw new Error('The backup contains an invalid correction or register event.')
+    }
+
+    correctionIds.add(entry.id)
+  }
+
+  return {
+    students,
+    records,
+    corrections,
+    finalized: snapshotFinalizedRosters(finalized, students),
+    exportedAt,
+  }
+}
+
+function hasValidSnapshot(entry, classId, studentsById) {
+  const ids = entry.studentIds
+
+  if (ids === undefined) return true
+
+  return (
+    Array.isArray(ids) &&
+    ids.length > 0 &&
+    new Set(ids).size === ids.length &&
+    ids.every((id) => studentsById.get(id)?.classId === classId)
+  )
+}
+
+function hasValidActorAndTime(entry) {
+  return (
+    isObject(entry) &&
+    typeof entry.by === 'string' &&
+    Boolean(entry.by.trim()) &&
+    typeof entry.at === 'string' &&
+    Number.isFinite(Date.parse(entry.at))
+  )
+}
+
+function isValidCorrection(entry, studentsById) {
+  if (entry.action === 'Finalize') {
+    return entry.from === 'Open' && entry.to === 'Finalized'
+  }
+
+  if (entry.action === 'Reopen') {
+    return (
+      entry.from === 'Finalized' &&
+      entry.to === 'Open' &&
+      typeof entry.reason === 'string' &&
+      Boolean(entry.reason.trim()) &&
+      entry.reason.length <= REOPEN_REASON_MAX
+    )
+  }
+
+  return (
+    ['Edit', 'Undo'].includes(entry.action) &&
+    studentsById.get(entry.studentId)?.classId === entry.classId &&
+    typeof entry.studentName === 'string' &&
+    Boolean(entry.studentName.trim()) &&
+    statuses.includes(entry.from) &&
+    statuses.includes(entry.to) &&
+    entry.from !== entry.to
+  )
 }

@@ -7,7 +7,7 @@ export function formatAttendanceRate(counts) {
   return eligible ? `${Math.round(attending / eligible * 100)}%` : '—'
 }
 
-export function buildAttendanceReport(students, records, from, to) {
+export function buildAttendanceReport(students, records, from, to, finalized = {}) {
   const days = []
   const totals = countStatuses([])
   const studentTotals = new Map()
@@ -21,7 +21,7 @@ export function buildAttendanceReport(students, records, from, to) {
     .sort()
 
   for (const date of dates) {
-    const roster = getRoster(students, date, records[date])
+    const roster = getRoster(students, date, records[date], finalized[date])
     const counts = countStatuses(roster)
 
     if (counts.Unmarked === roster.length) continue

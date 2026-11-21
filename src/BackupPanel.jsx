@@ -4,7 +4,7 @@ import {
   parseAttendanceBackup,
 } from './attendanceBackup.js'
 
-export default function BackupPanel({ students, records, onRestore }) {
+export default function BackupPanel({ students, records, corrections, finalized, onRestore }) {
   const [preview, setPreview] = useState(null)
   const [message, setMessage] = useState('')
   const requestId = useRef(0)
@@ -51,18 +51,14 @@ export default function BackupPanel({ students, records, onRestore }) {
       <div className="controls">
         <button
           type="button"
-          onClick={() => downloadAttendanceBackup(students, records)}
+          onClick={() => downloadAttendanceBackup(students, records, corrections, finalized)}
         >
           Download JSON backup
         </button>
 
         <label>
           Open a JSON backup
-          <input
-            type="file"
-            accept=".json,application/json"
-            onChange={chooseBackup}
-          />
+          <input type="file" accept=".json,application/json" onChange={chooseBackup} />
         </label>
       </div>
 
@@ -73,7 +69,7 @@ export default function BackupPanel({ students, records, onRestore }) {
             <br />
             Exported {new Date(preview.exportedAt).toLocaleString()}
             <br />
-            Restore replaces the student roster and attendance records in this browser.
+            Restore replaces the roster, attendance records, register status, and correction log in this browser.
           </p>
 
           <dl className="report-summary">
@@ -85,12 +81,26 @@ export default function BackupPanel({ students, records, onRestore }) {
               <dt>Saved register dates</dt>
               <dd>{Object.keys(preview.records).length}</dd>
             </div>
+            <div>
+              <dt>Corrections</dt>
+              <dd>{preview.corrections.length}</dd>
+            </div>
+            <div>
+              <dt>Finalized registers</dt>
+              <dd>
+                {Object.values(preview.finalized).reduce(
+                  (total, registers) => total + Object.keys(registers).length,
+                  0,
+                )}
+              </dd>
+            </div>
           </dl>
 
           <div className="controls">
             <button className="primary" type="button" onClick={restoreBackup}>
               Restore backup
             </button>
+
             <button
               type="button"
               onClick={() => {

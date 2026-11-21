@@ -11,13 +11,10 @@ export default function StudentManagement({ students, records, classroom, onSave
   const [message, setMessage] = useState('')
   const nameInput = useRef(null)
 
-  const classStudents = students.filter(
-    (student) => student.classId === classroom.id,
-  )
+  const classStudents = students.filter((student) => student.classId === classroom.id)
 
   function changeField(event) {
     const { name, value } = event.target
-
     setFields((previous) => ({ ...previous, [name]: value }))
     setMessage('')
   }
@@ -32,11 +29,6 @@ export default function StudentManagement({ students, records, classroom, onSave
   function resetForm() {
     setEditingId(null)
     setFields(newStudentFields())
-  }
-
-  function cancelEdit() {
-    resetForm()
-    setMessage('')
   }
 
   function saveStudent(event) {
@@ -76,7 +68,14 @@ export default function StudentManagement({ students, records, classroom, onSave
       return
     }
 
-    onSave({ id, name, classId: classroom.id, startDate, endDate })
+    const student = { id, name, classId: classroom.id, startDate, endDate }
+    const error = onSave(student)
+
+    if (error) {
+      setMessage(error)
+      return
+    }
+
     resetForm()
     setMessage(editingId ? 'Student updated.' : 'Student added.')
   }
@@ -141,7 +140,15 @@ export default function StudentManagement({ students, records, classroom, onSave
         </button>
 
         {editingId && (
-          <button type="button" onClick={cancelEdit}>Cancel</button>
+          <button
+            type="button"
+            onClick={() => {
+              resetForm()
+              setMessage('')
+            }}
+          >
+            Cancel
+          </button>
         )}
 
         {message && <p className="student-message" role="status">{message}</p>}
@@ -158,6 +165,7 @@ export default function StudentManagement({ students, records, classroom, onSave
               <th scope="col">Action</th>
             </tr>
           </thead>
+
           <tbody>
             {classStudents.map((student) => (
               <tr key={student.id}>

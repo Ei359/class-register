@@ -2,6 +2,9 @@ import { useEffect, useReducer, useRef, useState } from 'react'
 import { downloadAttendanceCsv } from './attendanceCsv.js'
 import StudentManagement from './StudentManagement.jsx'
 import BackupPanel from './BackupPanel.jsx'
+import CorrectionLog from './CorrectionLog.jsx'
+import RegisterWorkflow from './RegisterWorkflow.jsx'
+import attendanceReducer, { canFinalizeRoster } from './attendanceCorrections.js'
 import { loadRegisterData, saveRegisterData } from './attendanceBackup.js'
 import AttendanceReports from './AttendanceReports.jsx'
 import { formatAttendanceRate } from './attendanceReport.js'
@@ -15,64 +18,36 @@ import {
 } from './attendanceData.js'
 import './App.css'
 import './roster.css'
+import './workspace.css'
+
+const navigation = [
+  { id: 'overview', label: 'Overview', icon: '▥' },
+  { id: 'attendance', label: 'Attendance', icon: '▦' },
+  { id: 'history', label: 'History', icon: '◷' },
+  { id: 'reports', label: 'Reports', icon: '▤' },
+  { id: 'students', label: 'Students', icon: '♙' },
+  { id: 'corrections', label: 'Corrections', icon: '✎' },
+  { id: 'backup', label: 'Backup', icon: '⇧' },
+]
+
+function getActiveSection() {
+  const section = window.location.hash.slice(1)
+  return navigation.some((item) => item.id === section) ? section : 'overview'
+}
 
 function initializeAttendance() {
   return { ...loadRegisterData(), lastChange: null }
 }
 
-function attendanceReducer(state, action) {
-  const { records, students, lastChange } = state
-
-  if (action.type === 'restore') {
-    return { ...action.data, lastChange: null }
-  }
-
-  if (action.type === 'save-student') {
-    const student = action.student
-    const nextStudents = students.some((item) => item.id === student.id)
-      ? students.map((item) => item.id === student.id ? student : item)
-      : [...students, student]
-
-    return { ...state, students: nextStudents, lastChange: null }
-  }
-
-  if (action.type === 'undo') {
-    if (
-      !lastChange ||
-      lastChange.classId !== action.classId ||
-      lastChange.date !== action.date
-    ) {
-      return state
-    }
-
-    const restored = { ...records }
-
-    if (lastChange.previousDay === undefined) {
-      delete restored[action.date]
-    } else {
-      restored[action.date] = lastChange.previousDay
-    }
-
-    return { ...state, records: restored, lastChange: null }
-  }
-
-  const { date, classId, updates } = action
-  const previousDay = records[date]
-
-  const alreadyApplied = Object.entries(updates).every(
-    ([id, status]) => previousDay?.[id] === status,
-  )
-
-  if (alreadyApplied) return state
-
+function createAttendanceEvent(name) {
   return {
-    ...state,
-    records: { ...records, [date]: { ...previousDay, ...updates } },
-    lastChange: { date, classId, previousDay },
+    id: crypto.getRandomValues(new Uint32Array(4)).join('-'),
+    by: name.trim() || 'Local operator',
+    at: new Date().toISOString(),
   }
 }
 
-function StudentRow({ student, onMark }) {
+function StudentRow({ student, onMark, locked }) {
   const initials = student.name.split(' ').map((part) => part[0]).join('')
 
   return (
@@ -92,6 +67,7 @@ function StudentRow({ student, onMark }) {
           className={`status-select tone-${student.status.toLowerCase()}`}
           aria-label={`Attendance for ${student.name}`}
           value={student.status}
+          disabled={locked}
           onChange={(event) => onMark(student.id, event.target.value)}
         >
           {statuses.map((status) => (
@@ -103,7 +79,7 @@ function StudentRow({ student, onMark }) {
   )
 }
 
-function AttendanceHistory({ history, onViewDate }) {
+function AttendanceHistory({ history, finalized, onViewDate }) {
   return (
     <section className="panel" id="history" aria-labelledby="history-heading">
       <div className="panel-header">
@@ -123,6 +99,7 @@ function AttendanceHistory({ history, onViewDate }) {
                 {statuses.map((status) => (
                   <th key={status} scope="col">{status}</th>
                 ))}
+                <th scope="col">Register status</th>
                 <th scope="col">Action</th>
               </tr>
             </thead>
@@ -133,11 +110,16 @@ function AttendanceHistory({ history, onViewDate }) {
                   <th scope="row">
                     <time dateTime={date}>{formatDate(date)}</time>
                   </th>
-
                   {statuses.map((status) => (
                     <td key={status}>{counts[status]}</td>
                   ))}
-
+                  <td>
+                    <span
+                      className={`stat-label ${finalized[date] ? 'tone-present' : 'tone-unmarked'}`}
+                    >
+                      {finalized[date] ? 'Finalized' : 'Open'}
+                    </span>
+                  </td>
                   <td>
                     <button
                       type="button"
@@ -160,53 +142,77 @@ function AttendanceHistory({ history, onViewDate }) {
 export default function App() {
   const [classId, setClassId] = useState(classes[0].id)
   const [date, setDate] = useState(getToday)
-  const [{ records, students, lastChange }, dispatchAttendance] = useReducer(
-    attendanceReducer,
-    null,
-    initializeAttendance,
-  )
+
+  const [{ records, students, corrections, finalized, lastChange }, dispatchAttendance] =
+    useReducer(attendanceReducer, null, initializeAttendance)
 
   const [storageError, setStorageError] = useState(false)
   const [restoreCount, setRestoreCount] = useState(0)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('All')
+  const [operator, setOperator] = useState('')
+  const [activeSection, setActiveSection] = useState(getActiveSection)
   const rosterHeading = useRef(null)
 
   useEffect(() => {
     let failed = false
 
     try {
-      saveRegisterData({ students, records })
+      saveRegisterData({ students, records, corrections, finalized })
     } catch {
       failed = true
     }
 
     queueMicrotask(() => setStorageError(failed))
-  }, [students, records])
+  }, [students, records, corrections, finalized])
+
+  useEffect(() => {
+    function syncNavigation() {
+      setActiveSection(getActiveSection())
+    }
+
+    window.addEventListener('hashchange', syncNavigation)
+    return () => window.removeEventListener('hashchange', syncNavigation)
+  }, [])
 
   const selectedClass = classes.find((classroom) => classroom.id === classId)
   const classStudents = students.filter((student) => student.classId === classId)
-  const roster = getRoster(classStudents, date, records[date])
+  const classFinalized = finalized[classId] ?? {}
+  const finalizedRegister = classFinalized[date]
+
+  const roster = getRoster(classStudents, date, records[date], finalizedRegister)
   const counts = countStatuses(roster)
   const marked = roster.length - counts.Unmarked
   const rate = formatAttendanceRate(counts)
-  const canUndo = lastChange?.date === date && lastChange.classId === classId
+
+  const canUndo =
+    !finalizedRegister && lastChange?.date === date && lastChange.classId === classId
+
   const query = search.trim().toLowerCase()
+  const today = getToday()
+  const todayRoster = getRoster(students, today, records[today])
+  const todayCounts = countStatuses(todayRoster)
+
+  const overview = [
+    ['Classes', classes.length],
+    ['Enrolled students', todayRoster.length],
+    ['Marked today', todayRoster.length - todayCounts.Unmarked],
+    ['Attendance rate', formatAttendanceRate(todayCounts)],
+  ]
 
   const visibleRoster = roster.filter((student) => {
     const matchesSearch =
       student.name.toLowerCase().includes(query) ||
       student.id.toLowerCase().includes(query)
 
-    const matchesStatus =
-      statusFilter === 'All' || student.status === statusFilter
+    const matchesStatus = statusFilter === 'All' || student.status === statusFilter
 
     return matchesSearch && matchesStatus
   })
 
   const history = Object.entries(records)
     .map(([savedDate, day]) => {
-      const pastRoster = getRoster(classStudents, savedDate, day)
+      const pastRoster = getRoster(classStudents, savedDate, day, classFinalized[savedDate])
       const dayCounts = countStatuses(pastRoster)
 
       return {
@@ -227,8 +233,18 @@ export default function App() {
     dispatchAttendance({ type: 'save-student', student })
   }
 
-  function restoreBackup({ students, records }) {
-    const data = { students, records }
+  function changeRegisterStatus(type, reason) {
+    dispatchAttendance({
+      type,
+      classId,
+      date,
+      reason,
+      event: createAttendanceEvent(operator),
+    })
+  }
+
+  function restoreBackup({ students, records, corrections, finalized }) {
+    const data = { students, records, corrections, finalized }
 
     saveRegisterData(data)
     dispatchAttendance({ type: 'restore', data })
@@ -242,6 +258,7 @@ export default function App() {
       date,
       classId,
       updates: { [studentId]: status },
+      event: createAttendanceEvent(operator),
     })
   }
 
@@ -252,12 +269,29 @@ export default function App() {
         .map((student) => [student.id, 'Present']),
     )
 
-    dispatchAttendance({ type: 'mark', date, classId, updates })
+    dispatchAttendance({
+      type: 'mark',
+      date,
+      classId,
+      updates,
+      event: createAttendanceEvent(operator),
+    })
+  }
+
+  function undoAttendance() {
+    dispatchAttendance({
+      type: 'undo',
+      date,
+      classId,
+      event: createAttendanceEvent(operator),
+    })
   }
 
   function openRegister(savedDate) {
     setDate(savedDate)
     resetFilters()
+    window.history.replaceState(window.history.state, '', '#attendance')
+    setActiveSection('attendance')
     rosterHeading.current?.focus()
   }
 
@@ -268,16 +302,49 @@ export default function App() {
           <span aria-hidden="true">CR</span> Class Register
         </div>
 
-        <nav aria-label="Dashboard">
-          <a href="#attendance">Attendance</a>
-          <a href="#history">History</a>
-          <a href="#reports">Reports</a>
-          <a href="#students">Students</a>
-          <a href="#backup">Backup</a>
+        <p className="sidebar-label">WORKSPACE</p>
+
+        <nav aria-label="Dashboard navigation">
+          {navigation.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              className={activeSection === item.id ? 'active' : undefined}
+              aria-current={activeSection === item.id ? 'location' : undefined}
+              onClick={() => setActiveSection(item.id)}
+            >
+              <span className="nav-icon" aria-hidden="true">{item.icon}</span>
+              <span>{item.label}</span>
+              {activeSection === item.id && (
+                <span className="active-indicator" aria-hidden="true">●</span>
+              )}
+            </a>
+          ))}
         </nav>
+
+        <div className="sidebar-footer">
+          <span className="sidebar-status-dot" aria-hidden="true" />
+          Local workspace
+        </div>
       </aside>
 
       <main className="workspace">
+        <section id="overview" aria-labelledby="overview-heading">
+          <div className="page-header">
+            <p>All classes · {formatDate(today)}</p>
+            <h2 id="overview-heading">Today’s overview</h2>
+          </div>
+
+          <div className="summary">
+            {overview.map(([label, value]) => (
+              <div className="stat" key={label}>
+                <span className="workspace-note">{label}</span>
+                <strong>{value}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+
         <header className="page-header" id="attendance">
           <p>{selectedClass.section}</p>
           <h1>Attendance register</h1>
@@ -321,11 +388,7 @@ export default function App() {
             Today
           </button>
 
-          <button
-            type="button"
-            disabled={!canUndo}
-            onClick={() => dispatchAttendance({ type: 'undo', date, classId })}
-          >
+          <button type="button" disabled={!canUndo} onClick={undoAttendance}>
             Undo last change
           </button>
 
@@ -337,6 +400,14 @@ export default function App() {
             Download CSV
           </button>
         </section>
+
+        <RegisterWorkflow
+          key={`${classId}-${date}-${restoreCount}`}
+          finalizedRegister={finalizedRegister}
+          canFinalize={canFinalizeRoster(roster)}
+          onFinalize={() => changeRegisterStatus('finalize')}
+          onReopen={(reason) => changeRegisterStatus('reopen', reason)}
+        />
 
         <section className="summary" aria-label="Class attendance totals">
           {statuses.map((status) => (
@@ -353,7 +424,6 @@ export default function App() {
           <div>
             <h2 id="completion-heading">Register completion</h2>
             <p aria-live="polite">{marked} of {roster.length} students marked</p>
-
             <progress
               aria-label="Students marked"
               value={marked}
@@ -376,14 +446,32 @@ export default function App() {
             <button
               type="button"
               className="primary"
-              disabled={counts.Unmarked === 0}
+              disabled={Boolean(finalizedRegister) || counts.Unmarked === 0}
               onClick={markUnmarkedPresent}
             >
               Mark unmarked present
             </button>
           </div>
 
+          {finalizedRegister && (
+            <p className="empty-message">
+              This register keeps the roster from when it was finalized.
+              New students appear on open registers from their first day.
+            </p>
+          )}
+
           <div className="filters">
+            <label>
+              Recorded by
+              <input
+                type="text"
+                value={operator}
+                maxLength={80}
+                placeholder="Name (optional)"
+                onChange={(event) => setOperator(event.target.value)}
+              />
+            </label>
+
             <label>
               Search students
               <input
@@ -423,6 +511,7 @@ export default function App() {
                     key={student.id}
                     student={student}
                     onMark={markAttendance}
+                    locked={Boolean(finalizedRegister)}
                   />
                 ))}
 
@@ -440,12 +529,17 @@ export default function App() {
           </div>
         </section>
 
-        <AttendanceHistory history={history} onViewDate={openRegister} />
+        <AttendanceHistory
+          history={history}
+          finalized={classFinalized}
+          onViewDate={openRegister}
+        />
 
         <AttendanceReports
           classroom={selectedClass}
           students={classStudents}
           records={records}
+          finalized={classFinalized}
         />
 
         <StudentManagement
@@ -456,9 +550,13 @@ export default function App() {
           onSave={saveStudent}
         />
 
+        <CorrectionLog corrections={corrections} classroom={selectedClass} />
+
         <BackupPanel
           students={students}
           records={records}
+          corrections={corrections}
+          finalized={finalized}
           onRestore={restoreBackup}
         />
       </main>

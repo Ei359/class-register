@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { formatDate, getToday, statuses } from './attendanceData.js'
-import { buildAttendanceReport, formatAttendanceRate } from './attendanceReport.js'
+import {
+  buildAttendanceReport,
+  formatAttendanceRate,
+} from './attendanceReport.js'
 import { downloadCsv } from './attendanceCsv.js'
 import './reports.css'
 
@@ -51,11 +54,42 @@ function ReportTable({ title, firstColumn, rows }) {
   )
 }
 
-export default function AttendanceReports({ classroom, students, records }) {
+export default function AttendanceReports({ classroom, students, records, finalized }) {
   const [range, setRange] = useState(() => recentRange(7))
+  const [printError, setPrintError] = useState('')
+  const printCleanup = useRef(null)
+
   const { from, to } = range
   const validRange = Boolean(from && to && from <= to)
-  const report = buildAttendanceReport(students, records, from, to)
+  const report = buildAttendanceReport(students, records, from, to, finalized)
+
+  useEffect(() => () => printCleanup.current?.(), [])
+
+  function printReport() {
+    if (!report.days.length || printCleanup.current) return
+
+    setPrintError('')
+    const previousTitle = document.title
+
+    function finishPrinting() {
+      document.body.classList.remove('printing-attendance-report')
+      document.title = previousTitle
+      window.removeEventListener('afterprint', finishPrinting)
+      printCleanup.current = null
+    }
+
+    printCleanup.current = finishPrinting
+    document.body.classList.add('printing-attendance-report')
+    document.title = `Attendance report - ${classroom.name} - ${from} to ${to}`
+    window.addEventListener('afterprint', finishPrinting, { once: true })
+
+    try {
+      window.print()
+    } catch {
+      finishPrinting()
+      setPrintError('Print preview could not open. Please try again.')
+    }
+  }
 
   function changeRange(event) {
     const { name, value } = event.target
@@ -76,10 +110,7 @@ export default function AttendanceReports({ classroom, students, records }) {
       ]),
     ]
 
-    downloadCsv(
-      `attendance-report-${classroom.id}-${from}-to-${to}.csv`,
-      rows,
-    )
+    downloadCsv(`attendance-report-${classroom.id}-${from}-to-${to}.csv`, rows)
   }
 
   const summary = [
@@ -95,15 +126,30 @@ export default function AttendanceReports({ classroom, students, records }) {
         <div>
           <h2 id="reports-heading">Attendance reports</h2>
           <p className="report-note">{classroom.name} · {classroom.section}</p>
+
+          {validRange && (
+            <p className="report-print-range">
+              <time dateTime={from}>{formatDate(from)}</time>
+              {' – '}
+              <time dateTime={to}>{formatDate(to)}</time>
+            </p>
+          )}
         </div>
 
-        <button
-          type="button"
-          disabled={!report.days.length}
-          onClick={exportReport}
-        >
-          Download report CSV
-        </button>
+        <div className="report-actions">
+          <button type="button" disabled={!report.days.length} onClick={exportReport}>
+            Download report CSV
+          </button>
+
+          <button
+            className="primary"
+            type="button"
+            disabled={!report.days.length}
+            onClick={printReport}
+          >
+            Print / Save as PDF
+          </button>
+        </div>
       </div>
 
       <div className="report-filters">
@@ -125,6 +171,12 @@ export default function AttendanceReports({ classroom, students, records }) {
           Last 30 days
         </button>
       </div>
+
+      {printError && (
+        <p className="empty-message report-print-error" role="alert">
+          {printError}
+        </p>
+      )}
 
       {!validRange ? (
         <p className="empty-message" role="status">

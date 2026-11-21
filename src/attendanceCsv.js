@@ -6,19 +6,33 @@ function quoteCsvCell(value) {
   return `"${safeText.replaceAll('"', '""')}"`
 }
 
+export function downloadFile(file, filename) {
+  let link
+  let url
+
+  try {
+    url = URL.createObjectURL(file)
+    link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.append(link)
+    link.click()
+  } catch {
+    window.alert('The download could not start. Please try again.')
+  } finally {
+    link?.remove()
+
+    if (url) {
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    }
+  }
+}
+
 export function downloadCsv(filename, rows) {
   const csv = rows.map((row) => row.map(quoteCsvCell).join(',')).join('\r\n')
   const file = new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' })
-  const url = URL.createObjectURL(file)
-  const link = document.createElement('a')
 
-  link.href = url
-  link.download = filename
-  document.body.append(link)
-  link.click()
-  link.remove()
-
-  setTimeout(() => URL.revokeObjectURL(url), 1000)
+  downloadFile(file, filename)
 }
 
 export function downloadAttendanceCsv(date, roster, classroom) {

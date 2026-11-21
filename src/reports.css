@@ -64,3 +64,104 @@
   display: block;
   font-weight: 500;
 }
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.report-print-range {
+  display: none;
+}
+
+@media print {
+  body.printing-attendance-report {
+    color: #111;
+    background: #fff;
+  }
+
+  body.printing-attendance-report .layout {
+    display: block;
+    min-height: 0;
+  }
+
+  body.printing-attendance-report .sidebar,
+  body.printing-attendance-report .workspace > :not(#reports),
+  body.printing-attendance-report #reports .report-actions,
+  body.printing-attendance-report #reports .report-filters,
+  body.printing-attendance-report #reports .report-print-error {
+    display: none !important;
+  }
+
+  body.printing-attendance-report .workspace {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body.printing-attendance-report #reports {
+    --muted: #333;
+    --line: #aaa;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+    color: #111;
+    font-size: 10pt;
+  }
+
+  body.printing-attendance-report #reports .panel-header {
+    display: block;
+    padding: 0 0 0.8rem;
+    break-inside: avoid;
+  }
+
+  body.printing-attendance-report #reports h2 {
+    font-size: 18pt;
+  }
+
+  body.printing-attendance-report #reports .report-print-range {
+    display: block;
+    margin-top: 0.25rem;
+  }
+
+  body.printing-attendance-report #reports .report-summary {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    padding-inline: 0;
+    break-inside: avoid;
+  }
+
+  body.printing-attendance-report #reports .report-summary > div {
+    padding: 0.5rem;
+    background: #fff;
+  }
+
+  body.printing-attendance-report #reports .report-explanation,
+  body.printing-attendance-report #reports .report-table h3 {
+    padding-inline: 0;
+  }
+
+  body.printing-attendance-report #reports .report-table h3 {
+    break-after: avoid;
+  }
+
+  body.printing-attendance-report #reports .table-container {
+    overflow: visible;
+  }
+
+  body.printing-attendance-report #reports thead {
+    display: table-header-group;
+    color: #111;
+    background: #fff;
+  }
+
+  body.printing-attendance-report #reports tr {
+    break-inside: avoid;
+  }
+
+  body.printing-attendance-report #reports th,
+  body.printing-attendance-report #reports td {
+    padding: 0.35rem;
+    border-bottom: 1px solid var(--line);
+  }
+}
