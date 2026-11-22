@@ -4,6 +4,8 @@ Class Register is a student attendance management application I built using Reac
 
 I wanted to build something practical rather than just a basic React project, so I included features that could be useful in a real classroom.
 
+[Try the live Class Register demo](https://class-register-gamma.vercel.app/)
+
 ## Dashboard Preview
 
 ### 1. Attendance Dashboard
