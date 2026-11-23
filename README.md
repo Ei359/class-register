@@ -164,3 +164,9 @@ I built Class Register as a practical project to improve my understanding of Rea
 While working on it, I gained experience with React components, JavaScript logic, managing application data, browser Local Storage, Git, and GitHub.
 
 There are still improvements I would like to make, but this project has given me a better understanding of how to develop and organise a functional web application.
+
+## Developer
+
+**Ei Thazin Khine**
+
+GitHub: [Ei359](https://github.com/Ei359)
